@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.db.models import PredictionLog
+from app.models.prediction_model import PredictionLog
 
 class PredictionRepository:
     def __init__(self, db: Session):
@@ -15,3 +15,9 @@ class PredictionRepository:
         self.db.commit()
         self.db.refresh(log_entry)
         return log_entry
+
+    def get_history(self, skip: int = 0, limit: int = 10) -> list[PredictionLog]:
+        return self.db.query(PredictionLog).order_by(PredictionLog.created_at.desc()).offset(skip).limit(limit).all()
+
+    def count_total(self) -> int:
+        return self.db.query(PredictionLog).count()

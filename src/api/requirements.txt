@@ -1,8 +1,14 @@
 fastapi
 uvicorn
+gunicorn
 pandas
 scikit-learn
 lightgbm
 joblib
 sqlalchemy
 psycopg2-binary
+alembic
+passlib[bcrypt]
+pyjwt
+python-multipart
+openpyxl

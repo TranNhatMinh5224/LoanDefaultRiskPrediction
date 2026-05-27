@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: my_secure_password
       POSTGRES_DB: loandefault_db
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - loandefault_postgres_data:/var/lib/postgresql/data
 
@@ -28,6 +28,8 @@ services:
       POSTGRES_PORT: 5432
     ports:
       - "8088:8000"
+    volumes:
+      - .:/app
 
 volumes:
   loandefault_postgres_data:
