@@ -25,13 +25,13 @@ Bạn cần copy 2 file AI đã huấn luyện xong (Từ giai đoạn Research 
 - `lgbm_model_v3.joblib`
 - `imputer_v3.joblib`
 
-Và đặt chúng vào thư mục: `models/` (Nằm ngay trong thư mục `src/api/models/`).
+Và đặt chúng vào thư mục: `models/` (Nằm ngay trong thư mục `src/backend/model/`).
 
 ### Bước 2: Cấu hình môi trường
 Hệ thống sử dụng các file `.env` để bảo mật. Trong thư mục này đã có sẵn file `.env.example`. Khi chạy thực tế, Docker Compose sẽ tự động nhận diện các thông số để khởi tạo Database.
 
 ### Bước 3: Đóng gói và Chạy
-Mở Terminal tại thư mục `src/api/` và gõ câu lệnh sau:
+Mở Terminal tại thư mục `src/backend/` và gõ câu lệnh sau:
 
 ```bash
 docker-compose up --build -d
