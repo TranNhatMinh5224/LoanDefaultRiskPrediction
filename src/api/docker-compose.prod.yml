@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  loan_default_db:
+    container_name: LoanDefault_DB_Prod
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  loan_default_api:
+    container_name: LoanDefault_API_Prod
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G

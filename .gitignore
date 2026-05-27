@@ -1,0 +1,30 @@
+# Bỏ qua các file dữ liệu khổng lồ (Không bao giờ đẩy CSV lên Git)
+*.csv
+Data/
+data/
+
+# Bỏ qua các file Model AI nặng (Nên đẩy lên Google Drive hoặc MLflow)
+*.joblib
+*.pkl
+models/
+Model/
+
+# Bỏ qua Database nội bộ và thư mục volume của Docker
+*.db
+*.sqlite3
+hc_postgres_data/
+loandefault_postgres_data/
+
+# Bỏ qua các file biến môi trường chứa Mật khẩu
+.env
+.env.*
+!.env.example
+
+# Bỏ qua các file rác của Python và Jupyter
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.venv/
+env/
+venv/

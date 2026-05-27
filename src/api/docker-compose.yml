@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # 1. Database PostgreSQL
+  loan_default_db:
+    image: postgres:15-alpine
+    container_name: LoanDefault_DB_Base
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_secure_password
+      POSTGRES_DB: loandefault_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - loandefault_postgres_data:/var/lib/postgresql/data
+
+  # 2. FastAPI Backend
+  loan_default_api:
+    build: .
+    container_name: LoanDefault_API_Base
+    depends_on:
+      - loan_default_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_secure_password
+      POSTGRES_DB: loandefault_db
+      POSTGRES_HOST: loan_default_db
+      POSTGRES_PORT: 5432
+    ports:
+      - "8088:8000"
+
+volumes:
+  loandefault_postgres_data:
