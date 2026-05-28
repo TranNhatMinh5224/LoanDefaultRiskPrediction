@@ -1,0 +1,45 @@
+/* Biến màu sắc toàn cục */
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary-color: #f3f4f6;
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --danger: #dc2626;
+  --success: #16a34a;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-main);
+  background-color: var(--secondary-color);
+}
+
+/* Layout Styles */
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.layout-header {
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 1rem;
+}
+.layout-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--primary-color);
+}
+.layout-main {
+  flex-grow: 1;
+  padding: 2rem;
+}
+.layout-footer {
+  background-color: #1f2937;
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.875rem;
+}

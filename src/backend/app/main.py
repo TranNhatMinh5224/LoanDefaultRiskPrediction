@@ -5,17 +5,27 @@ from app.api.v1.auth_router import router as auth_router
 from app.db.database import Base, engine
 import app.models  # Import toàn bộ models để SQLAlchemy nhận diện được
 
-# Tự động chạy Migration tương đương với context.Database.Migrate() trong .NET
-from alembic.config import Config
-from alembic import command
+try:
+    # Thử chạy tạo bảng tự động (An toàn hơn Alembic nếu DB chưa kịp khởi động)
+    Base.metadata.create_all(bind=engine)
+    print("✅ Đã khởi tạo các bảng trong Database thành công!")
+except Exception as e:
+    print("❌ Lỗi khi khởi tạo Database:", e)
 
-alembic_cfg = Config("alembic.ini")
-command.upgrade(alembic_cfg, "head")
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title=settings.PROJECT_NAME, 
     version="2.0",
     description="Hệ thống chấm điểm tín dụng Home Credit chuẩn Clean Architecture"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Đăng ký các Router
