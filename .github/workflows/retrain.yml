@@ -32,7 +32,7 @@ jobs:
       - name: Lấy dữ liệu mới nhất từ Google Drive (Public Link)
         run: |
           # Download raw datasets folder into Data/
-          gdown --folder https://drive.google.com/drive/folders/1pfstzte4I2UcWOBryvOG1CcscdXNjzgC -O Data/
+          gdown --folder https://drive.google.com/drive/folders/1_DUfhumPI-nxJUR2oJMxFwpDBNbuwYMI -O Data/
 
       - name: Run Preprocessing Pipeline
         run: |
