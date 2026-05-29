@@ -90,21 +90,6 @@ def evaluate_and_register(model_dir: str = 'Model', backend_model_dir: str = 'sr
         shutil.copy2(preprocessor_path, dest_preprocessor_root)
         print(f"Copied artifacts to {model_dir}/")
         
-        # Copy to Backend serving folder
-        os.makedirs(backend_model_dir, exist_ok=True)
-        dest_model_backend = os.path.join(backend_model_dir, prod_model_name)
-        dest_preprocessor_backend = os.path.join(backend_model_dir, prod_preprocessor_name)
-        
-        shutil.copy2(model_path, dest_model_backend)
-        shutil.copy2(preprocessor_path, dest_preprocessor_backend)
-        print(f"Copied artifacts to {backend_model_dir}/")
-        
-        # Remove old imputer file from backend since we upgraded to preprocessor
-        old_imputer_path = os.path.join(backend_model_dir, "imputer_v1.joblib")
-        if os.path.exists(old_imputer_path):
-            os.remove(old_imputer_path)
-            print("Removed deprecated imputer_v1.joblib from backend/model/")
-            
         old_imputer_root = os.path.join(model_dir, "imputer_v1.joblib")
         if os.path.exists(old_imputer_root):
             os.remove(old_imputer_root)
@@ -159,16 +144,13 @@ def evaluate_and_register(model_dir: str = 'Model', backend_model_dir: str = 'sr
         metadata["models"].append(new_model_record)
         metadata["active_version"] = next_version
         
-        # Save metadata to both targets
+        # Save metadata to registry target
         dest_metadata_root = os.path.join(model_dir, 'model_metadata.json')
-        dest_metadata_backend = os.path.join(backend_model_dir, 'model_metadata.json')
         
         with open(dest_metadata_root, 'w') as f:
             json.dump(metadata, f, indent=2)
-        with open(dest_metadata_backend, 'w') as f:
-            json.dump(metadata, f, indent=2)
             
-        print("Updated model_metadata.json registered in both Model/ and src/backend/model/")
+        print("Updated model_metadata.json registered in Model/")
     else:
         print(f"WARNING: Candidate model ({candidate_auc:.4f}) failed to outperform active model ({active_auc:.4f}).")
         print("No promotion occurred. Existing production models retained.")

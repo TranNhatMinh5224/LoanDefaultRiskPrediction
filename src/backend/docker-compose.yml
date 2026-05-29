@@ -30,6 +30,7 @@ services:
       - "8088:8000"
     volumes:
       - .:/app
+      - ../../Model:/app/model:ro
 
 volumes:
   loandefault_postgres_data:

@@ -12,9 +12,30 @@ logger = logging.getLogger(__name__)
 
 class MLService:
     def __init__(self):
-        # Docker workspace is /app, model folder maps to /app/model
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        self.metadata_path = os.path.join(base_dir, 'model', 'model_metadata.json')
+        # Resolve backend directory (src/backend) and repo root directory
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        repo_root = os.path.dirname(os.path.dirname(backend_dir))
+        
+        # Candidate model directories in order of preference
+        candidate_model_dirs = [
+            os.path.join(repo_root, 'Model'),          # Local development / unit tests (root Model/)
+            os.path.join(backend_dir, 'model'),       # Docker mapped directory '/app/model' or local backend/model
+            '/app/model'                              # Direct absolute Docker container path
+        ]
+        
+        # Find directory that actually contains the model registry metadata
+        self.model_dir = None
+        for d in candidate_model_dirs:
+            meta_path = os.path.join(d, 'model_metadata.json')
+            if os.path.exists(meta_path):
+                self.model_dir = d
+                break
+        
+        if not self.model_dir:
+            # Fallback to local backend folder
+            self.model_dir = os.path.join(backend_dir, 'model')
+            
+        self.metadata_path = os.path.join(self.model_dir, 'model_metadata.json')
 
         # Load Metadata (Model Registry) first to resolve paths
         try:
@@ -37,16 +58,16 @@ class MLService:
         model_file = active_model_info.get("model_file", "lgbm_model_v1.joblib")
         preprocessor_file = active_model_info.get("preprocessor_file") or active_model_info.get("imputer_file") or "preprocessor_v1.joblib"
 
-        self.model_path = os.path.join(base_dir, 'model', model_file)
-        self.preprocessor_path = os.path.join(base_dir, 'model', preprocessor_file)
+        self.model_path = os.path.join(self.model_dir, model_file)
+        self.preprocessor_path = os.path.join(self.model_dir, preprocessor_file)
 
         # Load Model & Preprocessor Pipeline
         try:
             self.model = joblib.load(self.model_path)
             self.preprocessor = joblib.load(self.preprocessor_path)
-            logger.info("✅ Đã load MLService và Preprocessor Pipeline thành công!")
+            logger.info(f"✅ Loaded MLService successfully from {self.model_dir}!")
         except Exception as e:
-            logger.error(f"❌ Không thể tải mô hình: {e}")
+            logger.error(f"❌ Failed to load model: {e}")
             self.model = None
             self.preprocessor = None
 

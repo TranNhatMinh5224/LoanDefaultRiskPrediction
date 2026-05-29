@@ -7,12 +7,13 @@ on:
   workflow_dispatch:
     # Allow manual triggering via GitHub Actions UI
 
+permissions:
+  contents: write
+
 jobs:
   retrain:
     name: 🤖 Run ML Retraining
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     
     steps:
       - name: Checkout code
@@ -64,16 +65,17 @@ jobs:
           git config --global user.name "MLOps Bot"
           git config --global user.email "mlops-bot@example.com"
           
-          # Add promoted model files, metadata, and retrained test submissions
+          # Add promoted model files, metadata, and retrained test submissions from the registry
           git add -f Model/lgbm_model_v1.joblib
           git add -f Model/preprocessor_v1.joblib
           git add -f Model/model_metadata.json
           git add -f Model/submission_retrained.csv
-          git add -f src/backend/model/lgbm_model_v1.joblib
-          git add -f src/backend/model/preprocessor_v1.joblib
-          git add -f src/backend/model/model_metadata.json
                   
-          # Only commit if files changed
-          git diff --quiet && git diff --staged --quiet || git commit -m "🤖 Auto-retrained & promoted model to production"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin HEAD:${{ github.ref_name }}
+          # Only commit and push if there are staged changes
+          if ! git diff --staged --quiet; then
+            git commit -m "🤖 Auto-retrained & promoted model to production"
+            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "No changes to commit"
+          fi
