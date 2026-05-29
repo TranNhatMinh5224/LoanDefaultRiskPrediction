@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 class MLService:
     def __init__(self):
-        # Resolve backend directory (src/backend) and repo root directory
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # Resolve backend directory (src/backend) and repo root directory using absolute paths
+        abs_file = os.path.abspath(__file__)
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(abs_file)))
         repo_root = os.path.dirname(os.path.dirname(backend_dir))
         
         # Candidate model directories in order of preference

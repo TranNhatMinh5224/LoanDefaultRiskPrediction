@@ -75,6 +75,54 @@ Quá trình Thử nghiệm Đa mô hình:
 
 ---
 
+# 🤖 Quy trình MLOps tự động hóa (End-to-End MLOps Pipeline)
+
+Dự án tích hợp một hệ thống MLOps tự động hóa hoàn chỉnh từ khâu lấy dữ liệu, huấn luyện lại, đánh giá, kiểm thử cho đến thăng hạng và triển khai mô hình.
+
+## Sơ đồ luồng hoạt động (Workflow từ A-Z)
+
+```mermaid
+graph TD
+    A[Dữ liệu mới trên Google Drive] -->|1. Kích hoạt Workflow| B(GitHub Actions Runner)
+    B -->|2. Tải dữ liệu| C[Thư mục Data/]
+    C -->|3. Tiền xử lý dữ liệu| D[preprocess.py]
+    D -->|4. Trích xuất đặc trưng| E[feature_engineering.py]
+    E -->|5. Huấn luyện mô hình| F[train.py]
+    F -->|Lưu mô hình tạm thời| G[Model/candidate/]
+    G -->|6. Đánh giá & Thăng hạng| H[evaluate.py]
+    H -->|Đọc Active ROC-AUC| I[Model/model_metadata.json]
+    H -->|So sánh ROC-AUC| J{Mô hình mới tốt hơn?}
+    J -->|Không| K[Giữ nguyên mô hình cũ & Hủy mô hình ứng viên]
+    J -->|Có| L[Cập nhật Model Registry]
+    L -->|Ghi đè file model mới| M[Model/lgbm_model_v1.joblib & preprocessor_v1.joblib]
+    L -->|Lưu lịch sử & nâng active_version| I
+    L -->|7. Kiểm thử tích hợp| N[pytest src/backend/tests/]
+    N -->|Test Pass| O[Commit & Push lên GitHub]
+    O -->|8. Triển khai API| P(Backend API nạp model từ Model/ hoặc /app/model)
+```
+
+## Các thành phần MLOps cốt lõi
+
+### 1. Kích hoạt và Chuẩn bị Môi trường
+- **Cơ chế kích hoạt**: Quy trình chạy tự động hàng quý (cron job) hoặc chạy thủ công bằng nút bấm **Run workflow** trên GitHub Actions.
+- **Tải dữ liệu**: Dữ liệu thô mới nhất được kéo tự động từ Google Drive xuống thư mục `Data/` trên máy ảo của GitHub Runner.
+
+### 2. Tiền xử lý & Huấn luyện đồng bộ
+- Quy trình huấn luyện tự động tiền xử lý dữ liệu đồng bộ cấu trúc đặc trưng bằng cách giữ `DAYS_EMPLOYED_ANOM` là dạng boolean, thực hiện One-Hot Encoding cùng bộ lấp khuyết `SimpleImputer(strategy='median')` trực tiếp trên toàn bộ thuộc tính, đồng thời huấn luyện LightGBM Classifier với `early_stopping` (tương tự như trong Jupyter Notebook của bạn).
+
+### 3. Đăng ký & Thăng hạng mô hình (Model Registry)
+- Thư mục **`Model/`** đóng vai trò là **Model Registry (Single Source of Truth)** lưu trữ phiên bản mô hình chạy chính thức (`lgbm_model_v1.joblib`, `preprocessor_v1.joblib`) và tệp quản lý cấu hình `model_metadata.json`.
+- Nếu mô hình mới tốt hơn hoặc bằng mô hình hiện tại, tệp cấu hình `model_metadata.json` sẽ tự động chuyển trạng thái mô hình cũ thành `"archived"` và cập nhật `"active_version"` mới (ví dụ: `v2`), đồng thời lưu giữ danh sách thuộc tính (`feature_names`, `num_cols`, `cat_cols`) để Backend nạp động.
+
+### 4. Phục vụ mô hình & Triển khai (Serving & Deployment)
+- **Kiểm thử tự động**: Trước khi lưu trữ mô hình mới, chạy bộ unit test `pytest src/backend/tests/` nhằm kiểm tra API nạp và dự đoán thành công.
+- **Hạ tầng phục vụ**: 
+  - Khi chạy cục bộ, API Backend tự động tìm đọc model từ thư mục gốc `Model/`.
+  - Khi chạy trong container Docker (cả Dev và Production), thư mục gốc `Model/` được gắn (mount) dạng chỉ đọc (`readonly`) trực tiếp vào `/app/model` của container.
+  - Khi người dùng gửi yêu cầu dự đoán, `ml_service.py` đọc tệp metadata để định hình và căn chỉnh đặc trưng (OHE alignment) đúng theo cấu trúc của phiên bản mô hình đang hoạt động hiện tại.
+
+---
+
 # 🚀 Production API & Giao diện (End-to-End)
 
 Dự án không chỉ dừng lại ở Jupyter Notebook mà đã được đưa vào môi trường thực tế (Production) gồm Backend API và Frontend.
