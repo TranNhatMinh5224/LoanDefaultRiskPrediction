@@ -61,6 +61,9 @@ class MLService:
             df_copy['CREDIT_TERM'] = df_copy['AMT_ANNUITY'] / df_copy['AMT_CREDIT']
         if 'DAYS_EMPLOYED' in df_copy and 'DAYS_BIRTH' in df_copy:
             df_copy['DAYS_EMPLOYED_PERCENT'] = df_copy['DAYS_EMPLOYED'] / df_copy['DAYS_BIRTH']
+        
+        # Thay thế các giá trị vô cùng (inf) bằng NaN
+        df_copy = df_copy.replace([np.inf, -np.inf], np.nan)
         return df_copy
 
     def _run_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:

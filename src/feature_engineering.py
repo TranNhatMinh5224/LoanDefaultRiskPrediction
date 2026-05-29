@@ -26,6 +26,10 @@ def create_domain_features(df: pd.DataFrame) -> pd.DataFrame:
     if 'DAYS_EMPLOYED' in df_copy and 'DAYS_BIRTH' in df_copy:
         df_copy['DAYS_EMPLOYED_PERCENT'] = df_copy['DAYS_EMPLOYED'] / df_copy['DAYS_BIRTH']
         
+    # 3. Replace infinite values with NaN (arising from division by zero)
+    import numpy as np
+    df_copy = df_copy.replace([np.inf, -np.inf], np.nan)
+        
     return df_copy
 
 def run_feature_engineering(data_dir: str = 'Data', output_dir: str = 'Data'):
