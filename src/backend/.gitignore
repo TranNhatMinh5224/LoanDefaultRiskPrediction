@@ -14,8 +14,9 @@ env/
 .env.dev
 .env.prod
 
-# Model files (lớn, lưu riêng hoặc dùng Git LFS)
-*.joblib
+# Model files
+# *.joblib  <-- Bỏ chặn đuôi .joblib vì LightGBM model rất nhẹ (chỉ vài trăm KB), 
+#               chúng ta cần push nó lên GitHub để máy ảo có model chạy Unit Test!
 *.pkl
 *.h5
 
