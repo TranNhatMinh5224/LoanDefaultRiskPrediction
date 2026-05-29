@@ -28,7 +28,7 @@ def create_domain_features(df: pd.DataFrame) -> pd.DataFrame:
         
     # 3. Replace infinite values with NaN (arising from division by zero)
     import numpy as np
-    df_copy = df_copy.replace([np.inf, -np.inf], np.nan)
+    df_copy = df_copy.replace([np.inf, -np.inf, np.float32(np.inf), np.float32(-np.inf)], np.nan)
         
     return df_copy
 

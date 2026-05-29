@@ -30,7 +30,7 @@ def preprocess_data(data_dir: str = 'Data', output_dir: str = 'Data'):
     # 2. Basic Cleaning: DAYS_EMPLOYED anomaly
     print("Cleaning DAYS_EMPLOYED anomaly...")
     for df in [app_train, app_test]:
-        df['DAYS_EMPLOYED_ANOM'] = (df['DAYS_EMPLOYED'] == 365243).astype(np.int8)
+        df['DAYS_EMPLOYED_ANOM'] = df['DAYS_EMPLOYED'] == 365243
         df['DAYS_EMPLOYED'] = df['DAYS_EMPLOYED'].replace({365243: np.nan})
     
     # 3. Process Satellite Tables one by one (to save RAM)

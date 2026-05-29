@@ -121,6 +121,16 @@ def evaluate_and_register(model_dir: str = 'Model', backend_model_dir: str = 'sr
         submit_df.to_csv(submit_path, index=False)
         print(f"Test submission saved to {submit_path}")
         
+        # Load candidate metadata
+        candidate_meta_path = os.path.join(candidate_dir, 'candidate_metadata.json')
+        candidate_meta = {}
+        if os.path.exists(candidate_meta_path):
+            try:
+                with open(candidate_meta_path, 'r') as f:
+                    candidate_meta = json.load(f)
+            except Exception as e:
+                print(f"Warning: Failed to load candidate metadata: {e}")
+
         # Update metadata record
         new_model_record = {
             "version": next_version,
@@ -135,7 +145,10 @@ def evaluate_and_register(model_dir: str = 'Model', backend_model_dir: str = 'sr
             "training_rows": int(len(y_val) * 4), # Total training set size was validation * 4
             "validation_rows": int(len(y_val)),
             "status": "production",
-            "notes": f"Retrained model {next_version} using automated retraining pipeline. Pipeline standardized with ColumnTransformer. Improved/matched ROC-AUC from {active_auc:.4f} to {candidate_auc:.4f}."
+            "notes": f"Retrained model {next_version} using automated retraining pipeline. Preprocessing aligned with Jupyter notebook using pd.get_dummies and SimpleImputer.",
+            "num_cols": candidate_meta.get("num_cols", []),
+            "cat_cols": candidate_meta.get("cat_cols", []),
+            "feature_names": candidate_meta.get("feature_names", [])
         }
         
         # Mark old production models as archived

@@ -14,9 +14,31 @@ class MLService:
     def __init__(self):
         # Docker workspace is /app, model folder maps to /app/model
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        self.model_path = os.path.join(base_dir, 'model', 'lgbm_model_v1.joblib')
-        self.preprocessor_path = os.path.join(base_dir, 'model', 'preprocessor_v1.joblib')
         self.metadata_path = os.path.join(base_dir, 'model', 'model_metadata.json')
+
+        # Load Metadata (Model Registry) first to resolve paths
+        try:
+            with open(self.metadata_path, 'r') as f:
+                self.metadata = json.load(f)
+            self.active_version = self.metadata.get("active_version", "v1")
+            self.threshold = self._get_active_threshold()
+        except Exception:
+            self.metadata = {}
+            self.active_version = "v1"
+            self.threshold = 0.3
+
+        # Resolve paths dynamically based on active metadata
+        active_model_info = {}
+        for m in self.metadata.get("models", []):
+            if m.get("version") == self.active_version:
+                active_model_info = m
+                break
+                
+        model_file = active_model_info.get("model_file", "lgbm_model_v1.joblib")
+        preprocessor_file = active_model_info.get("preprocessor_file") or active_model_info.get("imputer_file") or "preprocessor_v1.joblib"
+
+        self.model_path = os.path.join(base_dir, 'model', model_file)
+        self.preprocessor_path = os.path.join(base_dir, 'model', preprocessor_file)
 
         # Load Model & Preprocessor Pipeline
         try:
@@ -28,21 +50,10 @@ class MLService:
             self.model = None
             self.preprocessor = None
 
-        # Load Metadata (Model Registry)
-        try:
-            with open(self.metadata_path, 'r') as f:
-                self.metadata = json.load(f)
-            self.active_version = self.metadata.get("active_version", "v1")
-            self.threshold = self._get_active_threshold()
-        except Exception:
-            self.metadata = {}
-            self.active_version = "v1"
-            self.threshold = 0.3
-
     def _get_active_threshold(self) -> float:
         """Đọc threshold từ model_metadata.json"""
         for m in self.metadata.get("models", []):
-            if m["version"] == self.active_version:
+            if m.get("version") == self.active_version:
                 return m.get("threshold", 0.3)
         return 0.3
 
@@ -62,27 +73,45 @@ class MLService:
         if 'DAYS_EMPLOYED' in df_copy and 'DAYS_BIRTH' in df_copy:
             df_copy['DAYS_EMPLOYED_PERCENT'] = df_copy['DAYS_EMPLOYED'] / df_copy['DAYS_BIRTH']
         
-        # Thay thế các giá trị vô cùng (inf) bằng NaN
-        df_copy = df_copy.replace([np.inf, -np.inf], np.nan)
+        df_copy = df_copy.replace([np.inf, -np.inf, np.float32(np.inf), np.float32(-np.inf)], np.nan)
         return df_copy
 
     def _run_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Pipeline chuẩn hóa: Feature Engineering → Align original features → Transform via ColumnTransformer"""
+        """Pipeline chuẩn hóa: Feature Engineering → pd.get_dummies → Align columns → SimpleImputer"""
         import re
         df = self._create_domain_features(df)
         
-        # Căn chỉnh cột đầu vào trùng khớp với pipeline huấn luyện
-        expected_cols = getattr(self.preprocessor, 'feature_names_in_', None)
-        if expected_cols is not None:
-            df = df.reindex(columns=expected_cols, fill_value=np.nan)
+        # Find active model info in metadata
+        active_model_info = {}
+        for m in self.metadata.get("models", []):
+            if m.get("version") == self.active_version:
+                active_model_info = m
+                break
+                
+        feature_names = active_model_info.get("feature_names", [])
+        num_cols = active_model_info.get("num_cols", [])
+        
+        # Fallback if metadata has no feature names (e.g. legacy model)
+        if not feature_names:
+            expected_cols = getattr(self.preprocessor, 'feature_names_in_', None)
+            if expected_cols is not None:
+                feature_names = list(expected_cols)
+            else:
+                feature_names = df.columns.tolist()
+                
+        # Perform get_dummies on input
+        df_encoded = pd.get_dummies(df)
+        df_encoded = df_encoded.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '_', x))
+        
+        # Reindex with expected columns, filling with NaN
+        df_aligned = df_encoded.reindex(columns=feature_names, fill_value=np.nan)
+        
+        # Fill missing dummy columns with 0 (dummy columns are those not in num_cols)
+        if num_cols:
+            dummy_cols = [col for col in feature_names if col not in num_cols]
+            df_aligned[dummy_cols] = df_aligned[dummy_cols].fillna(0)
             
-        processed_data = self.preprocessor.transform(df)
-        
-        # Gán lại tên cột sau mã hóa và làm sạch (sanitize) tên cột
-        raw_feature_names = self.preprocessor.get_feature_names_out()
-        sanitize_col = lambda x: re.sub(r'[^A-Za-z0-9_]+', '_', x)
-        feature_names = [sanitize_col(col) for col in raw_feature_names]
-        
+        processed_data = self.preprocessor.transform(df_aligned)
         return pd.DataFrame(processed_data, columns=feature_names)
 
     def predict_default_risk(self, features: dict) -> tuple[float, str, float]:
