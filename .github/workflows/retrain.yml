@@ -63,13 +63,13 @@ jobs:
           git config --global user.email "mlops-bot@example.com"
           
           # Add promoted model files, metadata, and retrained test submissions
-          git add Model/lgbm_model_v1.joblib \
-                  Model/preprocessor_v1.joblib \
-                  Model/model_metadata.json \
-                  Model/submission_retrained.csv \
-                  src/backend/model/lgbm_model_v1.joblib \
-                  src/backend/model/preprocessor_v1.joblib \
-                  src/backend/model/model_metadata.json
+          git add -f Model/lgbm_model_v1.joblib \
+                     Model/preprocessor_v1.joblib \
+                     Model/model_metadata.json \
+                     Model/submission_retrained.csv \
+                     src/backend/model/lgbm_model_v1.joblib \
+                     src/backend/model/preprocessor_v1.joblib \
+                     src/backend/model/model_metadata.json
                   
           # Only commit if files changed
           git diff --quiet && git diff --staged --quiet || git commit -m "🤖 Auto-retrained & promoted model to production"
