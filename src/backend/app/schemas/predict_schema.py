@@ -76,12 +76,23 @@ class PredictionResponse(BaseModel):
     sk_id_curr: str = Field(..., title="Mã Khách Hàng")
     risk_score: float = Field(..., title="Điểm Rủi Ro", ge=0.0, le=1.0, description="Xác suất vỡ nợ (từ 0.0 đến 1.0)")
     decision: str = Field(..., title="Quyết Định", examples=["APPROVE", "REJECT"])
+    duration_ms: Optional[float] = Field(None, title="Thời gian xử lý (ms)")
+    model_version: Optional[str] = Field(None, title="Phiên bản model")
 
 class ModelInfoResponse(BaseModel):
     version: str = Field(..., title="Phiên bản mô hình")
     algorithm: str = Field(..., title="Thuật toán")
     status: str = Field(..., title="Trạng thái")
     total_features_expected: int = Field(..., title="Số lượng biến đầu vào")
+
+class MonitoringStatsResponse(BaseModel):
+    total_predictions: int
+    approve_count: int
+    reject_count: int
+    last_7_days_reject_rate: float
+    baseline_reject_rate: float
+    drift_detected: bool
+    avg_latency_ms: float
 
 class PredictionHistoryItem(BaseModel):
     id: int

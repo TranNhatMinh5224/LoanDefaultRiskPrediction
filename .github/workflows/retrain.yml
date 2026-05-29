@@ -1,0 +1,55 @@
+name: 🔄 Auto Retraining Pipeline
+
+on:
+  schedule:
+    # Chạy lúc 2AM ngày 1 mỗi 3 tháng (Jan, Apr, Jul, Oct)
+    - cron: '0 2 1 */3 *'
+  workflow_dispatch:
+    # Cho phép bấm chạy thủ công trên GitHub UI
+
+jobs:
+  retrain:
+    name: 🤖 Run ML Retraining
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install jupyter nbconvert pandas scikit-learn lightgbm joblib
+          pip install dvc dvc-gdrive  # Cài đặt DVC để tải Data
+
+      - name: Lấy dữ liệu mới nhất từ Google Drive (DVC Pull)
+        env:
+          # Cần thêm secret này trên GitHub Settings để cấp quyền truy cập Drive
+          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+        run: |
+          dvc pull
+
+      - name: Execute Retraining Notebook
+        run: |
+          # Dùng nbconvert để chạy notebook tự động (không cần UI)
+          jupyter nbconvert --to notebook --execute Model/Loan_Default_Risk_PredictionFinal.ipynb --output Model/Retrained_Model.ipynb
+          
+      # Ghi chú: Kịch bản thực tế sẽ là:
+      # 1. Notebook sẽ load data mới nhất từ S3/Database
+      # 2. Train mô hình mới
+      # 3. So sánh ROC-AUC với mô hình cũ
+      # 4. Nếu tốt hơn -> overwrite file lgbm_model_v1.joblib
+      
+      - name: Commit & Push New Model
+        run: |
+          git config --global user.name "MLOps Bot"
+          git config --global user.email "mlops-bot@example.com"
+          git add Model/*.joblib Model/model_metadata.json
+          # Chỉ commit nếu có file thay đổi
+          git diff --quiet && git diff --staged --quiet || git commit -m "🤖 Auto-retrained model (better ROC-AUC)"
+          git push

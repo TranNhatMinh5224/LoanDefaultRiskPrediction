@@ -1,20 +1,61 @@
 version: '3.8'
 
 services:
+  # =============================================
+  # 1. Database PostgreSQL
+  # =============================================
   loan_default_db:
+    image: postgres:15-alpine
     container_name: LoanDefault_DB_Prod
-    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5434:5432"  # Chỉ bind localhost, Nginx/app mới vào được
+    volumes:
+      - loandefault_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-loandefault_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
 
+  # =============================================
+  # 2. FastAPI Backend
+  # =============================================
   loan_default_api:
+    build: .
     container_name: LoanDefault_API_Prod
-    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: loan_default_db  # Trỏ vào service DB trong cùng network
+      POSTGRES_PORT: 5432
+    ports:
+      - "127.0.0.1:8000:8000"  # Chỉ bind localhost, truy cập qua Nginx
+    volumes:
+      - ../../Model:/app/model:ro  # Mount thư mục Model (read-only)
+    depends_on:
+      loan_default_db:
+        condition: service_healthy  # Chờ DB healthy mới khởi động API
+    restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '2.0'
           memory: 2G
+
+volumes:
+  loandefault_postgres_data:
+
+networks:
+  default:
+    name: loan_default_network

@@ -1,14 +1,26 @@
-fastapi
-uvicorn
-gunicorn
-pandas
-scikit-learn
-lightgbm
-joblib
-sqlalchemy
-psycopg2-binary
-alembic
-passlib[bcrypt]
-pyjwt
-python-multipart
-openpyxl
+# Web Framework
+fastapi==0.115.5
+uvicorn==0.32.1
+gunicorn==23.0.0
+python-multipart==0.0.17
+
+# Data & ML
+pandas==2.2.3
+scikit-learn==1.5.2
+lightgbm==4.5.0
+joblib==1.4.2
+numpy==1.26.4
+openpyxl==3.1.5
+
+# Database
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
+
+# Auth & Security
+passlib[bcrypt]==1.7.4
+pyjwt==2.10.1
+
+# Config (pydantic-settings untuk upgrade config.py)
+pydantic==2.10.3
+pydantic-settings==2.7.0

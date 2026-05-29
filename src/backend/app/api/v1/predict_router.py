@@ -7,7 +7,8 @@ from app.schemas.predict_schema import (
     PredictionRequest, 
     PredictionResponse, 
     ModelInfoResponse,
-    PaginatedPredictionHistory
+    PaginatedPredictionHistory,
+    MonitoringStatsResponse
 )
 from app.schemas.base_response import BaseResponse
 from app.api.dependencies import get_db
@@ -20,14 +21,17 @@ router = APIRouter()
 def predict(request: PredictionRequest, db: Session = Depends(get_db)):
     try:
         # Bước 1: Đưa dữ liệu sang tầng Dịch vụ để tính toán rủi ro (Business Logic)
-        risk_score, decision = ml_service_instance.predict_default_risk(request.features)
+        risk_score, decision, duration_ms = ml_service_instance.predict_default_risk(request.features)
+        model_version = ml_service_instance.active_version
         
         # Bước 2: Khởi tạo Repository và ra lệnh lưu vào DB (Repository Pattern)
         repo = PredictionRepository(db)
         repo.save_prediction(
             sk_id_curr=request.sk_id_curr, 
             risk_score=risk_score, 
-            decision=decision
+            decision=decision,
+            duration_ms=duration_ms,
+            model_version=model_version
         )
         
         # Bước 3: Trả về kết quả
@@ -37,7 +41,9 @@ def predict(request: PredictionRequest, db: Session = Depends(get_db)):
             data=PredictionResponse(
                 sk_id_curr=request.sk_id_curr,
                 risk_score=risk_score,
-                decision=decision
+                decision=decision,
+                duration_ms=duration_ms,
+                model_version=model_version
             )
         )
     except Exception as e:
@@ -126,4 +132,19 @@ def get_prediction_history(
             size=size,
             data=records
         )
+    )
+
+@router.get("/monitoring/stats", response_model=BaseResponse[MonitoringStatsResponse], tags=["MLOps"])
+def get_monitoring_stats(db: Session = Depends(get_db)):
+    """
+    Lấy thống kê model monitoring (Data drift, Performance latency, Tỷ lệ Reject).
+    Dành cho Dashboard Monitoring.
+    """
+    repo = PredictionRepository(db)
+    stats = repo.get_monitoring_stats()
+    
+    return BaseResponse(
+        success=True,
+        message="Lấy thống kê thành công",
+        data=MonitoringStatsResponse(**stats)
     )

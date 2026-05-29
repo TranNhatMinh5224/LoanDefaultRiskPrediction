@@ -1,15 +1,45 @@
-import os
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings:
+
+class Settings(BaseSettings):
+    """
+    Cấu hình hệ thống — tự động đọc từ file .env hoặc biến môi trường.
+    Pydantic-settings tự validate kiểu dữ liệu và báo lỗi rõ ràng
+    nếu thiếu biến môi trường bắt buộc.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",        # Tự động đọc file .env
+        env_file_encoding="utf-8",
+        case_sensitive=False,   # POSTGRES_USER và postgres_user đều được
+        extra="ignore",         # Bỏ qua các biến .env không dùng
+    )
+
+    # ---- App ----
     PROJECT_NAME: str = "Home Credit Default Risk API"
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "my_secure_password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "loandefault_db")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "loan_default_db")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    DEBUG: bool = False
 
+    # ---- Database (bắt buộc phải có trong .env) ----
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str = "loan_default_db"
+    POSTGRES_PORT: int = 5432
+
+    # ---- JWT Auth ----
+    SECRET_KEY: str = "change-this-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        """Tự động tạo connection string từ các biến trên"""
+        return (
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
 
 settings = Settings()

@@ -1,0 +1,115 @@
+name: 🚀 CI/CD — Deploy Loan Default Risk System
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # JOB 1: Chạy Tests tự động trước khi deploy
+  # ============================================================
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: src/backend
+        run: pip install -r requirements.txt pytest
+
+      - name: Run tests
+        working-directory: src/backend
+        run: pytest tests/ -v --tb=short
+        # Nếu test fail → pipeline dừng, không deploy!
+
+  # ============================================================
+  # JOB 2: Build Frontend
+  # ============================================================
+  build-frontend:
+    name: 🏗️ Build Frontend
+    runs-on: ubuntu-latest
+    needs: test   # Chờ test pass mới build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install & Build
+        working-directory: src/frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.PRODUCTION_API_URL }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/frontend/dist/
+
+  # ============================================================
+  # JOB 3: Deploy lên VPS (chỉ chạy khi push lên main)
+  # ============================================================
+  deploy:
+    name: 🚀 Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: [test, build-frontend]   # Cần cả 2 job trước pass
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: Copy Frontend to VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: "/var/www/loan-default"
+          strip_components: 1
+
+      - name: Deploy Backend on VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e  # Dừng ngay nếu có lỗi
+
+            echo "📦 Pulling latest code..."
+            cd /opt/loan-default
+            git pull origin main
+
+            echo "🐳 Rebuilding and restarting containers..."
+            cd src/backend
+            docker-compose -f docker-compose.prod.yml up --build -d
+
+            echo "⏳ Waiting for API to be healthy..."
+            sleep 10
+            curl -f http://localhost:8000/ || exit 1
+
+            echo "✅ Deploy thành công!"
