@@ -14,10 +14,10 @@ class TestMLService:
     """Test lớp MLService - hạt nhân của hệ thống AI"""
 
     def test_model_loaded_successfully(self):
-        """Model và Imputer phải load được khi khởi động"""
+        """Model và Preprocessor phải load được khi khởi động"""
         from app.services.ml_service import ml_service_instance
         assert ml_service_instance.model is not None, "LightGBM model chưa được nạp!"
-        assert ml_service_instance.imputer is not None, "Imputer chưa được nạp!"
+        assert ml_service_instance.preprocessor is not None, "Preprocessor pipeline chưa được nạp!"
 
     def test_predict_returns_valid_score(self):
         """Điểm rủi ro phải nằm trong khoảng [0.0, 1.0]"""

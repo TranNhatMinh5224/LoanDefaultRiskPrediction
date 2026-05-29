@@ -3,28 +3,30 @@ import joblib
 import os
 import time
 import json
+import numpy as np
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 
 class MLService:
     def __init__(self):
-        # Môi trường Docker sẽ chạy tại /app, thư mục model nằm tại /app/model
+        # Docker workspace is /app, model folder maps to /app/model
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.model_path = os.path.join(base_dir, 'model', 'lgbm_model_v1.joblib')
-        self.imputer_path = os.path.join(base_dir, 'model', 'imputer_v1.joblib')
+        self.preprocessor_path = os.path.join(base_dir, 'model', 'preprocessor_v1.joblib')
         self.metadata_path = os.path.join(base_dir, 'model', 'model_metadata.json')
 
-        # Load Model & Imputer
+        # Load Model & Preprocessor Pipeline
         try:
             self.model = joblib.load(self.model_path)
-            self.imputer = joblib.load(self.imputer_path)
-            logger.info("✅ Đã load MLService thành công!")
+            self.preprocessor = joblib.load(self.preprocessor_path)
+            logger.info("✅ Đã load MLService và Preprocessor Pipeline thành công!")
         except Exception as e:
             logger.error(f"❌ Không thể tải mô hình: {e}")
             self.model = None
-            self.imputer = None
+            self.preprocessor = None
 
         # Load Metadata (Model Registry)
         try:
@@ -38,40 +40,19 @@ class MLService:
             self.threshold = 0.3
 
     def _get_active_threshold(self) -> float:
-        """Đọc threshold từ model_metadata.json — dễ thay đổi mà không cần sửa code"""
+        """Đọc threshold từ model_metadata.json"""
         for m in self.metadata.get("models", []):
             if m["version"] == self.active_version:
                 return m.get("threshold", 0.3)
         return 0.3
 
     def _create_domain_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Tái tạo chính xác các đặc trưng đã Feature Engineering trong Notebook"""
+        """Tạo các đặc trưng phái sinh số học."""
         df_copy = df.copy()
 
-        # 1. One-Hot Encoding cho Categorical từ Frontend
-        if 'CODE_GENDER' in df_copy:
-            df_copy['CODE_GENDER_F'] = df_copy['CODE_GENDER'].apply(lambda x: 1.0 if x == 'F' else 0.0)
-            df_copy['CODE_GENDER_M'] = df_copy['CODE_GENDER'].apply(lambda x: 1.0 if x == 'M' else 0.0)
-            df_copy.drop(columns=['CODE_GENDER'], inplace=True)
-
-        if 'FLAG_OWN_CAR' in df_copy:
-            df_copy['FLAG_OWN_CAR_Y'] = df_copy['FLAG_OWN_CAR'].apply(lambda x: 1.0 if x == 'Y' else 0.0)
-            df_copy['FLAG_OWN_CAR_N'] = df_copy['FLAG_OWN_CAR'].apply(lambda x: 1.0 if x == 'N' else 0.0)
-            df_copy.drop(columns=['FLAG_OWN_CAR'], inplace=True)
-
-        if 'NAME_EDUCATION_TYPE' in df_copy:
-            val = df_copy['NAME_EDUCATION_TYPE'].iloc[0]
-            if val == 'Higher education':
-                df_copy['NAME_EDUCATION_TYPE_Higher education'] = 1.0
-            elif val == 'Secondary / secondary special':
-                df_copy['NAME_EDUCATION_TYPE_Secondary / secondary special'] = 1.0
-            elif val == 'Lower secondary':
-                df_copy['NAME_EDUCATION_TYPE_Lower secondary'] = 1.0
-            df_copy.drop(columns=['NAME_EDUCATION_TYPE'], inplace=True)
-
-        # 2. Biến tài chính phái sinh
+        # Biến tài chính phái sinh
         if 'DAYS_BIRTH' in df_copy:
-            df_copy['AGE'] = df_copy['DAYS_BIRTH'] / -365
+            df_copy['AGE'] = df_copy['DAYS_BIRTH'] / -365.0
         if 'AMT_CREDIT' in df_copy and 'AMT_INCOME_TOTAL' in df_copy:
             df_copy['CREDIT_INCOME_PERCENT'] = df_copy['AMT_CREDIT'] / df_copy['AMT_INCOME_TOTAL']
         if 'AMT_ANNUITY' in df_copy and 'AMT_INCOME_TOTAL' in df_copy:
@@ -83,25 +64,33 @@ class MLService:
         return df_copy
 
     def _run_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Pipeline chung: Feature Engineering → Align → Impute"""
+        """Pipeline chuẩn hóa: Feature Engineering → Align original features → Transform via ColumnTransformer"""
+        import re
         df = self._create_domain_features(df)
-        expected_cols = getattr(
-            self.imputer, 'feature_names_in_',
-            getattr(self.model, 'feature_name_', None)
-        )
+        
+        # Căn chỉnh cột đầu vào trùng khớp với pipeline huấn luyện
+        expected_cols = getattr(self.preprocessor, 'feature_names_in_', None)
         if expected_cols is not None:
-            df = df.reindex(columns=expected_cols, fill_value=None)
-        return pd.DataFrame(self.imputer.transform(df), columns=df.columns)
+            df = df.reindex(columns=expected_cols, fill_value=np.nan)
+            
+        processed_data = self.preprocessor.transform(df)
+        
+        # Gán lại tên cột sau mã hóa và làm sạch (sanitize) tên cột
+        raw_feature_names = self.preprocessor.get_feature_names_out()
+        sanitize_col = lambda x: re.sub(r'[^A-Za-z0-9_]+', '_', x)
+        feature_names = [sanitize_col(col) for col in raw_feature_names]
+        
+        return pd.DataFrame(processed_data, columns=feature_names)
 
     def predict_default_risk(self, features: dict) -> tuple[float, str, float]:
         """
         Dự đoán rủi ro cho 1 khách hàng.
         Returns: (risk_score, decision, duration_ms)
         """
-        if self.model is None or self.imputer is None:
+        if self.model is None or self.preprocessor is None:
             raise ValueError("Mô hình AI chưa được nạp.")
 
-        # ⏱️ Performance Monitoring — bắt đầu đo thời gian
+        # Performance Monitoring
         start = time.perf_counter()
 
         df = pd.DataFrame([features])
@@ -110,7 +99,6 @@ class MLService:
         risk_prob = float(self.model.predict_proba(df_imputed)[0][1])
         decision = "REJECT" if risk_prob > self.threshold else "APPROVE"
 
-        # ⏱️ Kết thúc đo — tính ra milliseconds
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
         logger.info(f"Predict: score={risk_prob:.4f} decision={decision} duration={duration_ms}ms")
@@ -118,7 +106,7 @@ class MLService:
 
     def predict_batch_risk(self, df: pd.DataFrame) -> pd.DataFrame:
         """Dự đoán rủi ro cho nhiều khách hàng từ file CSV/Excel"""
-        if self.model is None or self.imputer is None:
+        if self.model is None or self.preprocessor is None:
             raise ValueError("Mô hình AI chưa được nạp.")
 
         df_imputed = self._run_pipeline(df.copy())
@@ -130,5 +118,5 @@ class MLService:
         return df_result
 
 
-# Singleton Pattern — chỉ khởi tạo 1 lần khi server bật
+# Singleton Pattern
 ml_service_instance = MLService()
