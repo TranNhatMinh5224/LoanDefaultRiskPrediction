@@ -11,6 +11,8 @@ jobs:
   retrain:
     name: 🤖 Run ML Retraining
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
