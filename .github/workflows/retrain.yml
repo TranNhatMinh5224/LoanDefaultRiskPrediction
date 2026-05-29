@@ -25,14 +25,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install jupyter nbconvert pandas scikit-learn lightgbm joblib
-          pip install dvc dvc-gdrive  # Cài đặt DVC để tải Data
+          pip install gdown  # Dùng gdown thay vì DVC cho đơn giản
 
-      - name: Lấy dữ liệu mới nhất từ Google Drive (DVC Pull)
-        env:
-          # Cần thêm secret này trên GitHub Settings để cấp quyền truy cập Drive
-          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+      - name: Lấy dữ liệu mới nhất từ Google Drive (Public Link)
         run: |
-          dvc pull
+          # Tải toàn bộ thư mục Data từ Drive xuống (Thay ID thư mục vào đây)
+          gdown --folder https://drive.google.com/drive/folders/1pfstzte4I2UcWOBryvOG1CcscdXNjzgC -O Data/
 
       - name: Execute Retraining Notebook
         run: |
